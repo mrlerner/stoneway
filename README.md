@@ -10,6 +10,34 @@ years? (Short answer: yes — about **6×** more net units.)
 
 **Live dashboard:** https://mrlerner.github.io/stoneway/
 
+## Corridors studied (exact segments)
+
+These are the **specific street segments** the analysis covers. Anything outside
+them is deliberately excluded — keep these boundaries fixed so results stay
+comparable over time.
+
+### N/NE 45th St — from I-5 (east) to Stone Way N (west)
+- **East boundary:** I-5 freeway (longitude ≈ -122.3235). Addresses across I-5 in
+  the University District (e.g. 1013+ NE 45th St) are **out**.
+- **West boundary:** the Stone Way N intersection (longitude ≈ -122.343).
+  Addresses further west toward Fremont (all NW 45th St, and N 45th St below
+  ~#1200) are **out**.
+- In practice this is roughly **#100–324 NE 45th St** and **#1220–2414 N 45th St**.
+- Verified cut points: last counted on the east is `324 NE 45th`; first counted on
+  the west is `1220 N 45th` (at the Stone Way corner).
+
+### Stone Way N — from N 45th St (north) down to N 34th St / the water (south)
+- **North boundary:** N 45th St (house number **#4500**). The stretch between 45th
+  and N 50th (#4612, 4709, 4807, 4809 …) is **out**.
+- **South boundary:** N 34th St near Lake Union (house number **#3400**), where
+  Stone Way ends at the water.
+- So the segment is **Stone Way N house numbers #3400–4499** (Seattle's grid maps
+  the first two digits to the cross street, so #3400 = N 34th and #4500 = N 45th).
+
+To re-check these boundaries at any time, run `python3 verify_addresses.py` — it
+lists every address with its segment status and shows the nearest excluded
+neighbor past each cut point.
+
 ## Data source
 
 City of Seattle **Building Permits** open dataset
@@ -21,10 +49,10 @@ housing units (`housingunitsadded` / `housingunitsremoved`).
 ## Method
 
 1. **Corridor membership** — a permit belongs to a corridor if its address is on
-   that street *and* it falls inside the segment:
-   - Stone Way N: house numbers 3400–4499.
-   - 45th St: longitude between Stone Way (≈ -122.343) and I-5 (≈ -122.3235), on
-     the 45th St line (lat ≈ 47.661).
+   that street *and* it falls inside the segment defined under
+   [Corridors studied](#corridors-studied-exact-segments) above (Stone Way N by
+   house number #3400–4499; 45th St by longitude between Stone Way and I-5 on the
+   45th St line, lat ≈ 47.661).
 2. **What's counted** — only *issued construction* permits (`permittypemapped =
    Building`) that change unit counts. Net units per permit = added − removed.
 3. **Demolition permits excluded** — Seattle copies a project's unit count onto
