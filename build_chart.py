@@ -122,6 +122,7 @@ html = f"""<!doctype html><html><head><meta charset="utf-8">
 </style></head><body>
 <h1>Residential units added: Stone Way N vs N/NE 45th St</h1>
 <p class="sub">Wallingford, Seattle &middot; net new units from issued construction permits, 2004&ndash;2025 &middot; built {today}</p>
+<p class="sub">See also: <a href="lot_sizes.html">lot-size comparison &rarr;</a></p>
 
 <div class="cards">
  <div class="card"><div class="n sw">{totals['Stone Way N']:.0f}</div><div class="l">net units added on <b>Stone Way N</b><br>(N 34th &rarr; N 45th)</div></div>

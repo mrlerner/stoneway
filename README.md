@@ -5,10 +5,15 @@ Comparing residential-unit growth along two Wallingford (Seattle) corridors:
 - **Stone Way N**, from N 34th St up to N 45th St
 - **N/NE 45th St**, from Stone Way N east to I-5
 
-The question: has Stone Way added housing faster than 45th St over the last ~20
-years? (Short answer: yes — about **6×** more net units.)
+Two related questions:
+
+1. Has Stone Way added housing faster than 45th St over the last ~20 years?
+   (Yes — about **6×** more net units.)
+2. Are Stone Way's lots bigger? (Yes — typical lot ~**1.7×** larger by median,
+   which helps explain why larger buildings landed there.)
 
 **Live dashboard:** https://mrlerner.github.io/stoneway/
+&middot; **Lot-size comparison:** https://mrlerner.github.io/stoneway/lot_sizes.html
 
 ## Corridors studied (exact segments)
 
@@ -73,14 +78,25 @@ housing units (`housingunitsadded` / `housingunitsremoved`).
 | `permits_by_corridor.csv` | Every permit, with a `counted` flag and exclusion reason — the audit trail. |
 | `units_by_year.csv` | Year-by-year net + cumulative units per corridor. |
 | `index.html` | Self-contained dashboard (inline SVG charts + permit tables). |
+| `fetch_parcels.sh` | Pulls parcels (lot size + geometry) for both segments from the King County `parcel_address_area` service → `parcels_*.json`. |
+| `analyze_lots.py` | Computes average/median lot size + frontage/depth per corridor; writes `lots_by_corridor.csv`, `lots_series.json`. |
+| `build_lots.py` | Renders `lot_sizes.html` — a to-scale, horizontal lot-size comparison. |
+| `lots_by_corridor.csv` | Every parcel with lot sqft, frontage, depth. |
+| `lot_sizes.html` | Self-contained lot-size visualization. |
 
 ## Reproduce
 
 ```bash
-./fetch_data.sh      # optional: refresh the raw data
+# Units analysis
+./fetch_data.sh      # optional: refresh the raw permit data
 python3 analyze.py   # build the CSVs + series.json
 python3 verify.py    # sanity-check for double counting
 python3 build_chart.py   # regenerate index.html
+
+# Lot-size analysis
+./fetch_parcels.sh   # optional: refresh parcel data
+python3 analyze_lots.py  # compute lot stats -> lots_by_corridor.csv, lots_series.json
+python3 build_lots.py    # regenerate lot_sizes.html
 ```
 
 ## Caveats
