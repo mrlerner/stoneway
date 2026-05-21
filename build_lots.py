@@ -1,61 +1,121 @@
 #!/usr/bin/env python3
-"""Render lot_sizes.html: a to-scale, horizontal comparison of typical lot sizes
-on Stone Way N vs N/NE 45th St. Both streets are drawn horizontally (frontage
-left-to-right) at the SAME pixels-per-foot scale, so the size gap is visible."""
-import json, csv, datetime
+"""Render lot_sizes.html: a to-scale, horizontal comparison of lot sizes on
+Stone Way N vs N/NE 45th St. The headline visual draws an ACTUAL, contiguous
+stretch of each street (both sides, real parcel positions and sizes) at the same
+pixels-per-foot scale, so the reader sees the real grain of each street."""
+import json, csv, datetime, re, statistics as st
 
 d = json.load(open('lots_series.json'))
 SW, S45 = d['stoneway'], d['st45']
 C_SW, C_45 = '#c0392b', '#2c6fbb'
-SCALE = 1.45          # pixels per foot (shared by every drawing)
-STRETCH_FT = 540      # length of street frontage shown in the representative block
+SCALE = 1.15          # pixels per foot (shared by every drawing)
+WINDOW_FT = 720       # length of street frontage shown in the real stretch
 
-def rep_block():
-    """Two horizontal street bands, same scale, tiled with each street's typical lot."""
-    pad_l, pad_t, gap, lbl = 16, 26, 46, 150
-    roww = STRETCH_FT * SCALE
-    W = pad_l + lbl + roww + 20
-    streets = [('N/NE 45th St', S45, C_45), ('Stone Way N', SW, C_SW)]
-    rowh = max(s['stats']['median_depth'] for _, s, _ in streets) * SCALE + gap
-    H = pad_t + rowh * 2 + 30
-    s = [f'<svg viewBox="0 0 {W:.0f} {H:.0f}" width="100%" font-family="system-ui,sans-serif">']
-    for i, (name, data, col) in enumerate(streets):
-        stt = data['stats']
-        fr = stt['median_frontage'] * SCALE
-        dp = stt['median_depth'] * SCALE
-        y0 = pad_t + i * rowh
-        base = y0 + dp                      # street line (lots sit on it)
-        # label
-        s.append(f'<text x="{pad_l}" y="{y0+dp/2-6:.0f}" font-size="14" font-weight="700" fill="{col}">{name}</text>')
-        s.append(f'<text x="{pad_l}" y="{y0+dp/2+12:.0f}" font-size="11" fill="#666">typ. {stt["median_frontage"]:.0f}&times;{stt["median_depth"]:.0f} ft</text>')
-        s.append(f'<text x="{pad_l}" y="{y0+dp/2+27:.0f}" font-size="11" fill="#666">median {stt["median"]:,} sqft</text>')
-        x = pad_l + lbl
-        xend = x + roww
-        n = 0
-        while x < xend - 2:
-            w = min(fr, xend - x)
-            s.append(f'<rect x="{x:.1f}" y="{base-dp:.1f}" width="{w-2:.1f}" height="{dp:.1f}" '
-                     f'fill="{col}" fill-opacity="0.18" stroke="{col}" stroke-width="1.5"/>')
-            x += fr; n += 1
-        # street line
-        s.append(f'<line x1="{pad_l+lbl}" y1="{base:.1f}" x2="{xend:.1f}" y2="{base:.1f}" stroke="#333" stroke-width="2"/>')
-        s.append(f'<text x="{xend:.0f}" y="{base+16:.0f}" text-anchor="end" font-size="11" fill="#999">~{n} lots in {STRETCH_FT} ft of street</text>')
-    # scale bar (100 ft)
-    sb = 100 * SCALE
-    sy = H - 12
-    s.append(f'<line x1="{pad_l+lbl}" y1="{sy}" x2="{pad_l+lbl+sb:.0f}" y2="{sy}" stroke="#333" stroke-width="2"/>')
-    s.append(f'<line x1="{pad_l+lbl}" y1="{sy-4}" x2="{pad_l+lbl}" y2="{sy+4}" stroke="#333" stroke-width="2"/>')
-    s.append(f'<line x1="{pad_l+lbl+sb:.0f}" y1="{sy-4}" x2="{pad_l+lbl+sb:.0f}" y2="{sy+4}" stroke="#333" stroke-width="2"/>')
-    s.append(f'<text x="{pad_l+lbl+sb+8:.0f}" y="{sy+4}" font-size="11" fill="#666">100 ft</text>')
+def load_parcels(path, along):
+    """along='y' for a N-S street (Stone Way), 'x' for an E-W street (45th).
+    Returns parcels with along-street position (s) and perpendicular center (pc),
+    all in State Plane feet."""
+    raw = json.load(open(path))
+    out = {}
+    for f in raw['features']:
+        a = f['attributes']; lot = a.get('LOTSQFT') or 0
+        if lot <= 0:
+            continue
+        rings = f.get('geometry', {}).get('rings') or []
+        xs = [p[0] for r in rings for p in r]; ys = [p[1] for r in rings for p in r]
+        if not xs:
+            continue
+        if along == 'y':
+            s0, s1, p0, p1 = min(ys), max(ys), min(xs), max(xs)
+        else:
+            s0, s1, p0, p1 = min(xs), max(xs), min(ys), max(ys)
+        m = re.match(r'(\d+)', a['ADDR_FULL'].strip())
+        out[a['PIN']] = dict(addr=a['ADDR_FULL'].strip(), hn=int(m.group(1)) if m else 0,
+                             area=lot, s0=s0, s1=s1, front=s1 - s0, depth=p1 - p0,
+                             pc=(p0 + p1) / 2, sc=(s0 + s1) / 2)
+    return list(out.values())
+
+def choose_window(parcels):
+    """Pick the WINDOW_FT-long run whose median lot area is closest to the
+    street's overall median (the most 'typical' stretch), preferring more lots.
+    Blocks dominated by an unusually large parcel (> 4x the overall median) are
+    skipped so the stretch reflects the typical grain, not an anomaly."""
+    overall = st.median([p['area'] for p in parcels])
+    cap = overall * 4
+    starts = sorted(p['sc'] for p in parcels)
+    best = None
+    for require_cap in (True, False):           # relax the cap only if nothing qualifies
+        for start in starts:
+            win = [p for p in parcels if start <= p['sc'] <= start + WINDOW_FT]
+            if len(win) < 6:
+                continue
+            if require_cap and max(p['area'] for p in win) > cap:
+                continue
+            score = (abs(st.median([p['area'] for p in win]) - overall), -len(win))
+            if best is None or score < best[0]:
+                best = (score, win)
+        if best:
+            break
+    return best[1] if best else parcels
+
+def _blockface(parcels, along):
+    """Pick a representative window, then return the real lots along the SINGLE
+    side of the street that has more parcels, in geographic order (a clean
+    blockface with no cross-street gaps), plus a human side label."""
+    win = choose_window(parcels)
+    cl = st.median([p['pc'] for p in parcels])
+    lo = [p for p in win if p['pc'] < cl]
+    hi = [p for p in win if p['pc'] >= cl]
+    side = hi if len(hi) >= len(lo) else lo
+    side = sorted(side, key=lambda p: p['sc'])
+    is_hi = side is hi
+    if along == 'y':   # Stone Way runs N-S; perpendicular is easting -> E/W sides
+        label = 'east side' if is_hi else 'west side'
+    else:              # 45th runs E-W; perpendicular is northing -> N/S sides
+        label = 'north side' if is_hi else 'south side'
+    return dict(lots=side, label=label,
+                run_ft=sum(p['front'] for p in side),
+                dmax=max((p['depth'] for p in side), default=60),
+                hns=sorted(p['hn'] for p in side))
+
+def draw_both():
+    """Both blockfaces in ONE SVG so the pixels-per-foot scale is genuinely shared."""
+    gsw = _blockface(sw_parcels, 'y'); g45 = _blockface(s45_parcels, 'x')
+    padx = 16
+    plotw = max(gsw['run_ft'], g45['run_ft']) * SCALE
+    W = padx * 2 + plotw
+    s = [f'<svg viewBox="0 0 {W:.0f} {{H}}" width="100%" font-family="system-ui,sans-serif">']
+    y = 0
+    for name, col, g in [('Stone Way N', C_SW, gsw), ('N/NE 45th St', C_45, g45)]:
+        y += 24
+        street_y = y                      # street line at top; lots hang below
+        s.append(f'<text x="{padx}" y="{y-9:.0f}" font-size="14" font-weight="700" fill="{col}">{name} '
+                 f'<tspan font-weight="400" font-size="11" fill="#888">&middot; {g["label"]}, {g["hns"][0]}&ndash;{g["hns"][-1]} block</tspan></text>')
+        s.append(f'<line x1="{padx}" y1="{street_y:.1f}" x2="{padx+g["run_ft"]*SCALE:.0f}" y2="{street_y:.1f}" stroke="#333" stroke-width="2.5"/>')
+        x = padx
+        for p in g['lots']:
+            w = max(p['front'] * SCALE, 1); h = p['depth'] * SCALE
+            s.append(f'<rect x="{x:.1f}" y="{street_y:.1f}" width="{w-1.2:.1f}" height="{h:.1f}" '
+                     f'fill="{col}" fill-opacity="0.18" stroke="{col}" stroke-width="1.3"/>')
+            if w > 30:
+                s.append(f'<text x="{x+w/2:.1f}" y="{street_y+15:.1f}" text-anchor="middle" font-size="9.5" fill="#555">{p["area"]:,}</text>')
+                s.append(f'<text x="{x+w/2:.1f}" y="{street_y+h/2+4:.1f}" text-anchor="middle" font-size="8.5" fill="#aaa">{p["front"]:.0f}&times;{p["depth"]:.0f}ft</text>')
+            x += w
+        y = street_y + g['dmax'] * SCALE + 30
+    sb = 100 * SCALE; by = y + 2
+    s.append(f'<line x1="{padx}" y1="{by:.0f}" x2="{padx+sb:.0f}" y2="{by:.0f}" stroke="#333" stroke-width="2"/>')
+    s.append(f'<line x1="{padx}" y1="{by-4:.0f}" x2="{padx}" y2="{by+4:.0f}" stroke="#333" stroke-width="2"/>')
+    s.append(f'<line x1="{padx+sb:.0f}" y1="{by-4:.0f}" x2="{padx+sb:.0f}" y2="{by+4:.0f}" stroke="#333" stroke-width="2"/>')
+    s.append(f'<text x="{padx+sb+8:.0f}" y="{by+4:.0f}" font-size="10" fill="#666">100 ft &middot; each box is one real lot (area in sqft, frontage&times;depth); street runs along the top line</text>')
     s.append('</svg>')
-    return '\n'.join(s)
+    return '\n'.join(s).replace('{H}', f'{y+14:.0f}')
 
 def hero():
-    """The two typical lots, one on top of the other, same scale, frontage horizontal."""
+    """The two typical lots, same scale, frontage horizontal."""
     pad = 20
     fr_sw, dp_sw = SW['stats']['median_frontage']*SCALE, SW['stats']['median_depth']*SCALE
     fr_45, dp_45 = S45['stats']['median_frontage']*SCALE, S45['stats']['median_depth']*SCALE
-    W = pad*2 + max(fr_sw, fr_45) + 170
+    W = pad*2 + max(fr_sw, fr_45) + 180
     H = pad*2 + dp_sw + dp_45 + 30
     s = [f'<svg viewBox="0 0 {W:.0f} {H:.0f}" width="100%" font-family="system-ui,sans-serif">']
     y = pad
@@ -84,6 +144,8 @@ def lot_table():
         out.append('</tbody></table>')
     return '\n'.join(out)
 
+sw_parcels = load_parcels('parcels_stoneway.json', 'y')
+s45_parcels = load_parcels('parcels_45th.json', 'x')
 today = datetime.date.today().isoformat()
 mr = SW['stats']['mean']/S45['stats']['mean']
 mdr = SW['stats']['median']/S45['stats']['median']
@@ -116,20 +178,22 @@ html = f"""<!doctype html><html><head><meta charset="utf-8">
  <div class="card"><div class="n">{mdr:.1f}&times;</div><div class="l">larger typical lot on<br>Stone Way (by median)</div></div>
 </div>
 
+<h2>An actual stretch of each street (real lots, to scale)</h2>
+<p class="sub">A representative block on each street &mdash; the real, consecutive lots along one side, in order, drawn to the same scale. Each box is an actual parcel sized by its real frontage and depth. Stone Way's lots are visibly bigger and fewer; 45th's are narrow and many.</p>
+<div class="panel">{draw_both()}</div>
+
 <h2>Typical lot, side by side (same scale)</h2>
 <div class="panel">{hero()}</div>
-
-<h2>A representative stretch of each street</h2>
-<p class="sub">Same {STRETCH_FT} ft of street frontage, drawn at the same scale. Stone Way fits fewer, larger lots; 45th packs in more, smaller ones.</p>
-<div class="panel">{rep_block()}</div>
 
 <div class="note">
 <b>Method &amp; caveats</b>
 <ul>
  <li><b>Source:</b> King County <code>parcel_address_area</code> feature service (lot square footage + parcel geometry), pulled {today}.</li>
  <li><b>Which lots:</b> parcels whose <i>primary</i> address is on the segment &mdash; Stone Way N #3400&ndash;4499 (N 34th&rarr;N 45th); 45th St between Stone Way and I-5 (same boundaries as the units analysis). One row per parcel; records with zero lot area excluded.</li>
+ <li><b>The &ldquo;actual stretch&rdquo;</b> is auto-selected: of every ~{WINDOW_FT} ft run, it shows the one whose median lot area is closest to the street's overall median (skipping blocks dominated by an unusually large parcel) &mdash; a typical, not cherry-picked, block.</li>
+ <li><b>One side shown:</b> the blockface uses the consecutive lots along whichever side of the street has more parcels in that block, in geographic order, butted together &mdash; so it reads as a clean row without cross-street gaps. The other side's grain is similar.</li>
  <li><b>Median vs mean:</b> both streets have a few very large parcels (e.g. 1815 N 45th at 75,112 sqft; 4400 Stone Way at 60,088), so the <b>median</b> is the better &ldquo;typical lot&rdquo; figure. Stone Way leads on both (median {mdr:.1f}&times;, mean {mr:.1f}&times;).</li>
- <li><b>Frontage &amp; depth</b> are each parcel's bounding-box dimensions along/perpendicular to the street (from geometry in State Plane feet); they slightly overstate irregular lots.</li>
+ <li><b>Lot rectangles</b> are each parcel's bounding box (frontage along the street &times; depth), from geometry in State Plane feet; irregular lots are slightly overstated.</li>
  <li><b>Orientation:</b> both streets are drawn horizontally for comparison. Stone Way actually runs north&ndash;south; 45th runs east&ndash;west.</li>
 </ul>
 </div>
@@ -138,3 +202,9 @@ html = f"""<!doctype html><html><head><meta charset="utf-8">
 </body></html>"""
 open('lot_sizes.html', 'w').write(html)
 print('wrote lot_sizes.html')
+# report the chosen stretches for transparency
+for parcels, along, nm in [(sw_parcels, 'y', 'Stone Way'), (s45_parcels, 'x', '45th')]:
+    win = choose_window(parcels)
+    hns = sorted(p['hn'] for p in win)
+    print(f"  {nm}: chose {hns[0]}-{hns[-1]} block, {len(win)} lots, "
+          f"median {st.median([p['area'] for p in win]):,.0f} sqft")
