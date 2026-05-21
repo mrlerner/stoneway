@@ -153,8 +153,8 @@ def draw_megalots():
         r = rows[addr]
         return dict(name=MEGA_NAMES[addr], area=int(r['lotsqft']),
                     front=float(r['frontage_ft']), depth=float(r['depth_ft']), col=col)
-    ref = dict(name='Football field (with end zones)', area=57600, front=360, depth=160,
-               col='#5f8a3a', dashed=True)
+    ref = dict(name='Olympic pool (50 × 25 m)', area=13455, front=164, depth=82,
+               col='#1a8a9a', dashed=True)
     sw = [it(a, C_SW) for a in ['4400 STONE WAY N', '3920 STONE WAY N', '3524 STONE WAY N',
           '3636 STONE WAY N', '3665 STONE WAY N', '3616 STONE WAY N', '4106 STONE WAY N', '4213 STONE WAY N']]
     f45 = [it(a, C_45) for a in ['1815 N 45TH ST', '400 NE 45TH ST', '1220 N 45TH ST',
@@ -178,7 +178,7 @@ def draw_megalots():
         return rowtop + rowmaxh
 
     y = 8
-    s.append(f'<text x="{padx}" y="{y+11:.0f}" font-size="11.5" font-weight="700" fill="#5f8a3a">YARDSTICK</text>')
+    s.append(f'<text x="{padx}" y="{y+11:.0f}" font-size="11.5" font-weight="700" fill="#1a8a9a">YARDSTICK</text>')
     y = flow([ref], y + 14)
     y += 26
     s.append(f'<text x="{padx}" y="{y:.0f}" font-size="13" font-weight="700" fill="{C_SW}">Stone Way N &mdash; largest lots</text>')
@@ -214,6 +214,15 @@ s45_parcels = load_parcels('parcels_45th.json', 'x')
 today = datetime.date.today().isoformat()
 mr = SW['stats']['mean']/S45['stats']['mean']
 mdr = SW['stats']['median']/S45['stats']['median']
+
+# how many lots beat an Olympic pool (13,455 sqft)?
+POOL = 13455
+_areas = {'Stone Way N': [], 'N/NE 45th St': []}
+for _r in csv.DictReader(open('lots_by_corridor.csv')):
+    _areas[_r['corridor']].append(int(_r['lotsqft']))
+sw_big = sum(1 for a in _areas['Stone Way N'] if a > POOL); sw_tot = len(_areas['Stone Way N'])
+f45_big = sum(1 for a in _areas['N/NE 45th St'] if a > POOL); f45_tot = len(_areas['N/NE 45th St'])
+sw_one = round(sw_tot / sw_big); f45_one = round(f45_tot / f45_big)
 html = f"""<!doctype html><html><head><meta charset="utf-8">
 <title>Lot sizes: Stone Way N vs 45th St</title>
 <style>
@@ -247,8 +256,16 @@ html = f"""<!doctype html><html><head><meta charset="utf-8">
 <p class="sub">A representative block on each street &mdash; the real, consecutive lots along one side, in order, drawn to the same scale. Each box is an actual parcel sized by its real frontage and depth. Stone Way's lots are visibly bigger and fewer; 45th's are narrow and many.</p>
 <div class="panel">{draw_both()}</div>
 
+<h2>How many lots are bigger than an Olympic pool?</h2>
+<p class="sub">An Olympic swimming pool covers about 13,455 sqft. Counting every lot on each segment that beats it shows how much more large-lot land Stone Way has &mdash; even though it has fewer lots overall ({sw_tot} vs {f45_tot}).</p>
+<div class="cards">
+ <div class="card"><div class="n sw">{sw_big}</div><div class="l"><b>Stone Way</b> lots bigger than an Olympic pool<br>1 in {sw_one} of all its lots</div></div>
+ <div class="card"><div class="n st">{f45_big}</div><div class="l"><b>45th St</b> lots bigger than an Olympic pool<br>1 in {f45_one} of all its lots</div></div>
+ <div class="card"><div class="n">{(sw_big/sw_tot)/(f45_big/f45_tot):.1f}&times;</div><div class="l">more common on Stone Way<br>(as a share of lots)</div></div>
+</div>
+
 <h2>The mega-lots, to scale</h2>
-<p class="sub">The largest parcels on each street, drawn as their real footprints (frontage &times; depth) at the same scale, with a football field as a yardstick. Stone Way's big lots are a dense cluster &mdash; and most are already large apartment or senior-housing buildings. 45th's few large lots are mostly things that don't become housing (a bank, a gas station, Dick's), though its single biggest (Wallingford Center) outsizes anything on Stone Way.</p>
+<p class="sub">The largest parcels on each street, drawn as their real footprints (frontage &times; depth) at the same scale, with an Olympic pool as the yardstick. Stone Way's big lots are a dense cluster &mdash; and most are already large apartment or senior-housing buildings. 45th's few large lots are mostly things that don't become housing (a bank, a gas station, Dick's), though its single biggest (Wallingford Center) outsizes anything on Stone Way.</p>
 <div class="panel">{draw_megalots()}</div>
 
 <h2>Typical lot, side by side (same scale)</h2>
