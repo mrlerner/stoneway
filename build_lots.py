@@ -129,6 +129,71 @@ def hero():
     s.append('</svg>')
     return '\n'.join(s)
 
+MEGA_NAMES = {
+    '4400 STONE WAY N': 'University House · senior living',
+    '3920 STONE WAY N': 'Prescott Wallingford · apts',
+    '3524 STONE WAY N': '35 Stone · offices',
+    '3636 STONE WAY N': 'Ray Apartments',
+    '3665 STONE WAY N': 'The Cline · 243 apts',
+    '3616 STONE WAY N': 'Public Storage',
+    '4106 STONE WAY N': 'Broadstone · apts',
+    '4213 STONE WAY N': 'Watermarke · apts',
+    '1815 N 45TH ST': 'Wallingford Center · retail',
+    '400 NE 45TH ST': 'retail + apts',
+    '1220 N 45TH ST': 'Stonehedge · apts',
+    '111 NE 45TH ST': "Dick's Drive-In",
+    '1919 N 45TH ST': 'Chase Bank',
+    '210 NE 45TH ST': 'Shell gas station',
+}
+MEGA_SCALE = 0.62  # px per foot for the footprint gallery
+
+def draw_megalots():
+    rows = {r['address']: r for r in csv.DictReader(open('lots_by_corridor.csv'))}
+    def it(addr, col):
+        r = rows[addr]
+        return dict(name=MEGA_NAMES[addr], area=int(r['lotsqft']),
+                    front=float(r['frontage_ft']), depth=float(r['depth_ft']), col=col)
+    ref = dict(name='Football field (with end zones)', area=57600, front=360, depth=160,
+               col='#5f8a3a', dashed=True)
+    sw = [it(a, C_SW) for a in ['4400 STONE WAY N', '3920 STONE WAY N', '3524 STONE WAY N',
+          '3636 STONE WAY N', '3665 STONE WAY N', '3616 STONE WAY N', '4106 STONE WAY N', '4213 STONE WAY N']]
+    f45 = [it(a, C_45) for a in ['1815 N 45TH ST', '400 NE 45TH ST', '1220 N 45TH ST',
+           '111 NE 45TH ST', '1919 N 45TH ST', '210 NE 45TH ST']]
+    W, padx, GAP, LBL = 900, 12, 16, 16
+    s = [f'<svg viewBox="0 0 {W} {{H}}" width="100%" font-family="system-ui,sans-serif">']
+
+    def flow(items, y):
+        x = padx; rowtop = y + LBL; rowmaxh = 0
+        for d in items:
+            w = max(d['front'] * MEGA_SCALE, 2); h = max(d['depth'] * MEGA_SCALE, 2)
+            if x + w > W - padx and x > padx:
+                y = rowtop + rowmaxh + GAP; x = padx; rowtop = y + LBL; rowmaxh = 0
+            dash = ' stroke-dasharray="5 3"' if d.get('dashed') else ''
+            s.append(f'<rect x="{x:.1f}" y="{rowtop:.1f}" width="{w-1.5:.1f}" height="{h:.1f}" '
+                     f'fill="{d["col"]}" fill-opacity="0.16" stroke="{d["col"]}" stroke-width="1.4"{dash}/>')
+            s.append(f'<text x="{x:.1f}" y="{rowtop-4:.1f}" font-size="10" font-weight="600" fill="{d["col"]}">{d["name"]}</text>')
+            s.append(f'<text x="{x+w/2:.1f}" y="{rowtop+h/2:.1f}" text-anchor="middle" font-size="10" fill="#444">{d["area"]:,}</text>')
+            s.append(f'<text x="{x+w/2:.1f}" y="{rowtop+h/2+13:.1f}" text-anchor="middle" font-size="8.5" fill="#999">{d["front"]:.0f} ft front</text>')
+            x += w + GAP; rowmaxh = max(rowmaxh, h)
+        return rowtop + rowmaxh
+
+    y = 8
+    s.append(f'<text x="{padx}" y="{y+11:.0f}" font-size="11.5" font-weight="700" fill="#5f8a3a">YARDSTICK</text>')
+    y = flow([ref], y + 14)
+    y += 26
+    s.append(f'<text x="{padx}" y="{y:.0f}" font-size="13" font-weight="700" fill="{C_SW}">Stone Way N &mdash; largest lots</text>')
+    y = flow(sw, y + 6)
+    y += 26
+    s.append(f'<text x="{padx}" y="{y:.0f}" font-size="13" font-weight="700" fill="{C_45}">N/NE 45th St &mdash; largest lots</text>')
+    y = flow(f45, y + 6)
+    sb = 100 * MEGA_SCALE; by = y + 22
+    s.append(f'<line x1="{padx}" y1="{by:.0f}" x2="{padx+sb:.0f}" y2="{by:.0f}" stroke="#333" stroke-width="2"/>')
+    s.append(f'<line x1="{padx}" y1="{by-4:.0f}" x2="{padx}" y2="{by+4:.0f}" stroke="#333" stroke-width="2"/>')
+    s.append(f'<line x1="{padx+sb:.0f}" y1="{by-4:.0f}" x2="{padx+sb:.0f}" y2="{by+4:.0f}" stroke="#333" stroke-width="2"/>')
+    s.append(f'<text x="{padx+sb+8:.0f}" y="{by+4:.0f}" font-size="10" fill="#666">100 ft &middot; each box is a real lot footprint to scale (number = lot sqft)</text>')
+    s.append('</svg>')
+    return '\n'.join(s).replace('{H}', f'{by+16:.0f}')
+
 def lot_table():
     rows = list(csv.DictReader(open('lots_by_corridor.csv')))
     out = ['<h2>Every lot in the count</h2>',
@@ -181,6 +246,10 @@ html = f"""<!doctype html><html><head><meta charset="utf-8">
 <h2>An actual stretch of each street (real lots, to scale)</h2>
 <p class="sub">A representative block on each street &mdash; the real, consecutive lots along one side, in order, drawn to the same scale. Each box is an actual parcel sized by its real frontage and depth. Stone Way's lots are visibly bigger and fewer; 45th's are narrow and many.</p>
 <div class="panel">{draw_both()}</div>
+
+<h2>The mega-lots, to scale</h2>
+<p class="sub">The largest parcels on each street, drawn as their real footprints (frontage &times; depth) at the same scale, with a football field as a yardstick. Stone Way's big lots are a dense cluster &mdash; and most are already large apartment or senior-housing buildings. 45th's few large lots are mostly things that don't become housing (a bank, a gas station, Dick's), though its single biggest (Wallingford Center) outsizes anything on Stone Way.</p>
+<div class="panel">{draw_megalots()}</div>
 
 <h2>Typical lot, side by side (same scale)</h2>
 <div class="panel">{hero()}</div>
