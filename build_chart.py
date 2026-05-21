@@ -6,7 +6,7 @@ d = json.load(open('series.json'))
 years = d['years']
 cum = d['cum']
 net = {k: {int(y): v for y, v in vals.items()} for k, vals in d['net_by'].items()}
-totals = d['totals']; pipe = d['pipeline']
+totals = d['totals']; pipe = d['pipeline']; base = d.get('baseline', {})
 C_SW, C_45 = '#c0392b', '#2c6fbb'   # Stone Way red, 45th blue
 
 # ---------- cumulative line chart ----------
@@ -121,7 +121,7 @@ html = f"""<!doctype html><html><head><meta charset="utf-8">
  table.pt td:last-child{{color:#888;max-width:280px}}
 </style></head><body>
 <h1>Residential units added: Stone Way N vs N/NE 45th St</h1>
-<p class="sub">Wallingford, Seattle &middot; net new units from issued construction permits, 2004&ndash;2025 &middot; built {today}</p>
+<p class="sub">Wallingford, Seattle &middot; net new units from issued construction permits, 2011&ndash;2025 &middot; built {today}</p>
 <p class="sub">See also: <a href="lot_sizes.html">lot-size comparison &rarr;</a></p>
 
 <div class="cards">
@@ -147,6 +147,7 @@ html = f"""<!doctype html><html><head><meta charset="utf-8">
  <li><b>Double-count check:</b> all {ncounted} counted permits have unique permit numbers, no two share an address, and no two share a location within ~11m &mdash; so no building is counted twice. The only cases where counted permits sit on the same block were checked individually against their descriptions and confirmed to be separate buildings.</li>
  <li><b>Corridor definition:</b> properties addressed on each street within the segment (Stone Way N #3400&ndash;4499; 45th St between Stone Way and I-5). A half-block-deep definition would add a few side-street-addressed projects but does not change the picture.</li>
  <li><b>Timing</b> = permit <i>issued</i> year (when construction was approved). Not-yet-issued projects in review are excluded: ~{pipe['N/NE 45th St']:.0f} units on 45th St and ~{pipe['Stone Way N']:.0f} on Stone Way are in the pipeline.</li>
+ <li><b>Window</b> = last 15 years (2011&ndash;2025); permitting before 2011 was sparse. The few earlier units are carried as a starting baseline (Stone Way {base.get('Stone Way N', 0):.0f}, 45th {base.get('N/NE 45th St', 0):.0f}), so the cumulative totals still reflect all activity back to 2004.</li>
  <li>Permit counts are a close proxy for units built but not identical (a few issued permits expire unbuilt). Cross-check totals against King County Assessor apartment/condo files for a built-stock validation.</li>
 </ul>
 </div>

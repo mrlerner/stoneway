@@ -77,18 +77,29 @@ per_permit.sort(key=lambda x: (x['corridor'], x['issued_date'] or '9999', x['add
 
 # ---- yearly aggregation of counted permits ----
 corridors = ['Stone Way N', 'N/NE 45th St']
-years = list(range(2004, 2026))
-net_by = {c: {y: 0.0 for y in years} for c in corridors}
+ALL_YEARS = list(range(2004, 2026))
+DISPLAY_START = 2011          # chart shows the last ~15 years; pre-2011 is sparse
+years = [y for y in ALL_YEARS if y >= DISPLAY_START]
+net_all = {c: {y: 0.0 for y in ALL_YEARS} for c in corridors}
 for p in per_permit:
     if p['counted']:
-        y = int(p['issued_year'])
-        net_by[p['corridor']][y] = net_by[p['corridor']].get(y, 0) + p['net_units']
-cum = {c: [] for c in corridors}
+        net_all[p['corridor']][int(p['issued_year'])] += p['net_units']
+
+# pre-2011 net is carried as a baseline so cumulative totals stay accurate
+baseline = {c: sum(net_all[c][y] for y in ALL_YEARS if y < DISPLAY_START) for c in corridors}
+# full cumulative (all years, for the CSV record)
+cum_all = {c: [] for c in corridors}
 for c in corridors:
     run = 0.0
+    for y in ALL_YEARS:
+        run += net_all[c][y]; cum_all[c].append(run)
+# displayed series: per-year + cumulative seeded with the pre-2011 baseline
+net_by = {c: {y: net_all[c][y] for y in years} for c in corridors}
+cum = {c: [] for c in corridors}
+for c in corridors:
+    run = baseline[c]
     for y in years:
-        run += net_by[c][y]
-        cum[c].append(run)
+        run += net_all[c][y]; cum[c].append(run)
 
 totals = {c: cum[c][-1] for c in corridors}
 # pipeline (in-segment, construction, not yet issued)
@@ -108,9 +119,9 @@ with open('units_by_year.csv', 'w', newline='') as f:
     w = csv.writer(f)
     w.writerow(['year', 'StoneWay_net_added', 'StoneWay_cumulative',
                 '45th_net_added', '45th_cumulative'])
-    for i, y in enumerate(years):
-        w.writerow([y, net_by['Stone Way N'][y], cum['Stone Way N'][i],
-                    net_by['N/NE 45th St'][y], cum['N/NE 45th St'][i]])
+    for i, y in enumerate(ALL_YEARS):
+        w.writerow([y, net_all['Stone Way N'][y], cum_all['Stone Way N'][i],
+                    net_all['N/NE 45th St'][y], cum_all['N/NE 45th St'][i]])
 
 print('TOTALS (issued construction permits, net units):')
 for c in corridors:
@@ -120,4 +131,4 @@ print(f'  counted permits: {sum(1 for p in per_permit if p["counted"])}')
 
 # stash for chart builder
 json.dump({'years': years, 'net_by': net_by, 'cum': cum,
-           'totals': totals, 'pipeline': pipeline}, open('series.json', 'w'))
+           'totals': totals, 'pipeline': pipeline, 'baseline': baseline}, open('series.json', 'w'))
