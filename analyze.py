@@ -78,7 +78,7 @@ per_permit.sort(key=lambda x: (x['corridor'], x['issued_date'] or '9999', x['add
 # ---- yearly aggregation of counted permits ----
 corridors = ['Stone Way N', 'N/NE 45th St']
 ALL_YEARS = list(range(2004, 2026))
-DISPLAY_START = 2011          # chart shows the last ~15 years; pre-2011 is sparse
+DISPLAY_START = 2016          # chart shows the last ~10 years (the decade)
 years = [y for y in ALL_YEARS if y >= DISPLAY_START]
 net_all = {c: {y: 0.0 for y in ALL_YEARS} for c in corridors}
 for p in per_permit:
