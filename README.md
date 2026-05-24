@@ -97,7 +97,50 @@ python3 build_chart.py   # regenerate index.html
 ./fetch_parcels.sh   # optional: refresh parcel data
 python3 analyze_lots.py  # compute lot stats -> lots_by_corridor.csv, lots_series.json
 python3 build_lots.py    # regenerate lot_sizes.html
+
+# Restaurant analysis
+./fetch_restaurants.sh        # optional: refresh raw inspection data
+python3 analyze_restaurants.py
+python3 build_restaurant_chart.py   # regenerate restaurants.html
 ```
+
+## Restaurants (Stone Way N vs 45th St)
+
+A companion analysis of how many **restaurants** are open on the same two segments.
+Question: has Stone Way's restaurant scene overtaken 45th St's?
+
+**Short answer:** not on raw count — **45th St has 48 open restaurants today vs 29
+on Stone Way (1.7×)**. But Stone Way's restaurants are far *newer*: ~38% of them
+first appear in 2024–2025 and its count nearly doubled since 2022 (15→29), tracking
+the housing boom. So Stone Way is the faster-*growing* restaurant corridor, while
+45th still has the larger established row.
+
+**Important data limitation.** The only free, reproducible block-level source is
+King County Public Health's Food Establishment Inspection Data
+([f29f-zza5](https://data.kingcounty.gov/Health-Wellness/Food-Establishment-Inspection-Data/f29f-zza5)),
+which is effectively a registry of restaurants open *today* — closed restaurants are
+purged (county-wide only ~54 of 12,874 establishments have a last inspection before
+2024). So this analysis honestly shows **(1)** how many restaurants are open *now*
+and **(2)** the *opening-year vintage* of those current restaurants — **not** a true
+historical stock that would include since-closed places. A true 20-year open-per-year
+curve needs a source with restaurant *close* dates; none exists cleanly for free
+(WA DOR's Business Lookup keeps close dates but only 5 years and has no API; the best
+partial option is a Feb-2020 Kaggle snapshot of f29f-zza5 to diff against today and
+recover 2020-era closures).
+
+Method: a food permit is a "restaurant" if its inspection record carries a *seating*
+category (sit-down / quick-service); no-seating grocery and school-lunch permits drop
+out automatically, and convenience/retail permit-holders with seating (7-Eleven,
+Brooks Running) are excluded explicitly with a stated reason. Opening proxy = first
+inspection date. Corridor boundaries are identical to the housing analysis.
+
+| File | Purpose |
+|------|---------|
+| `fetch_restaurants.sh` | Pulls food-establishment inspection JSON for both corridors → `rest_stoneway.json`, `rest_45th.json`. |
+| `analyze_restaurants.py` | Classifies establishments into corridors, applies the restaurant test, writes `restaurants_by_corridor.csv`, `restaurants_vintage_by_year.csv`, `restaurants_series.json`. |
+| `build_restaurant_chart.py` | Renders `restaurants.html` (the restaurant dashboard). |
+| `restaurants_by_corridor.csv` | Every establishment with a `counted` flag + exclusion reason — the audit trail. |
+| `restaurants.html` | Self-contained restaurant dashboard. |
 
 ## Caveats
 
