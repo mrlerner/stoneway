@@ -132,10 +132,10 @@ html = f"""<!doctype html><html><head><meta charset="utf-8">
 
 <p class="legend"><span style="background:{C_SW}"></span>Stone Way N &nbsp;&nbsp;<span style="background:{C_45}"></span>N/NE 45th St</p>
 
-<h2>How many new homes each street has added</h2>
+<h2>How many new housing units each street has added</h2>
 {line_chart()}
 
-<h2>New homes added each year</h2>
+<h2>Housing units added each year</h2>
 {bar_chart()}
 
 <div class="note">
