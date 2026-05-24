@@ -120,9 +120,10 @@ html = f"""<!doctype html><html><head><meta charset="utf-8">
  table.pt tr.ex{{color:#aaa}} table.pt tr.ex a{{color:#9bb}}
  table.pt td:last-child{{color:#888;max-width:280px}}
 </style></head><body>
-<h1>Residential units added: Stone Way N vs N/NE 45th St</h1>
+<h1>Housing units added on Stone Way vs. 45th Street</h1>
 <p class="sub">Wallingford, Seattle &middot; net new units from issued construction permits, 2011&ndash;2025 &middot; built {today}</p>
 <p class="sub">See also: <a href="lot_sizes.html">lot-size comparison &rarr;</a></p>
+<p class="legend"><span style="background:{C_SW}"></span>Stone Way N &nbsp;&nbsp;<span style="background:{C_45}"></span>N/NE 45th St</p>
 
 <div class="cards">
  <div class="card"><div class="n sw">{totals['Stone Way N']:.0f}</div><div class="l">net units added on <b>Stone Way N</b><br>(N 34th &rarr; N 45th)</div></div>
@@ -130,9 +131,6 @@ html = f"""<!doctype html><html><head><meta charset="utf-8">
  <div class="card"><div class="n">{ratio:.1f}&times;</div><div class="l">more units added on<br>Stone Way than 45th</div></div>
 </div>
 
-<p class="legend"><span style="background:{C_SW}"></span>Stone Way N &nbsp;&nbsp;<span style="background:{C_45}"></span>N/NE 45th St</p>
-
-<h2>How many new housing units each street has added</h2>
 {line_chart()}
 
 <h2>Housing units added each year</h2>
