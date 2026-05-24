@@ -125,13 +125,13 @@ html = f"""<!doctype html><html><head><meta charset="utf-8">
 <p class="sub">See also: <a href="lot_sizes.html">lot-size comparison &rarr;</a></p>
 <p class="legend"><span style="background:{C_SW}"></span>Stone Way N &nbsp;&nbsp;<span style="background:{C_45}"></span>N/NE 45th St</p>
 
+{line_chart()}
+
 <div class="cards">
  <div class="card"><div class="n sw">{totals['Stone Way N']:.0f}</div><div class="l">net units added on <b>Stone Way N</b><br>(N 34th &rarr; N 45th)</div></div>
  <div class="card"><div class="n st">{totals['N/NE 45th St']:.0f}</div><div class="l">net units added on <b>N/NE 45th St</b><br>(Stone Way &rarr; I-5)</div></div>
  <div class="card"><div class="n">{ratio:.1f}&times;</div><div class="l">more units added on<br>Stone Way than 45th</div></div>
 </div>
-
-{line_chart()}
 
 <h2>Housing units added each year</h2>
 {bar_chart()}
